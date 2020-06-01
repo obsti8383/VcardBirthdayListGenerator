@@ -11,10 +11,10 @@ References:
 The following parameters are available:
 
   --path : path where the vcf files reside (or vcf file directly) (required)
+
+The following commands are available:
 		
   --version : prints version
-
-
 
 # Example command line
 ./VcardBirthdayListGenerator --path ~/.contacts/
