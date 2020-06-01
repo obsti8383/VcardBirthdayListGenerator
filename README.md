@@ -14,8 +14,9 @@ The following parameters are available:
 
 The following commands are available:
 		
-  --version : prints version
+  version : prints version
 
-# Example command line
+# Example command lines
 ./VcardBirthdayListGenerator --path ~/.contacts/
 
+./VcardBirthdayListGenerator version
