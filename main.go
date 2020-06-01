@@ -32,9 +32,7 @@ var (
 )
 
 func main() {
-	rootCmd.AddCommand(versionCmd)
-	rootCmd.PersistentFlags().StringVar(&Path, "path", "vcf folder path", "path where the vcf files reside (or vcf file directly) (required)")
-	rootCmd.MarkFlagRequired("path")
+	rootCmd.AddCommand(versionCmd, csvCmd, textCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -44,11 +42,38 @@ func main() {
 
 var rootCmd = &cobra.Command{
 	Use:   "VcardBirthdayListGenerator",
-	Short: "VcardBirthdayListGenerator generates a birthday list as csv (to stdout) from vcf files",
-	Long:  "VcardBirthdayListGenerator generates a birthday list as csv (to stdout) from vcf files",
+	Short: "VcardBirthdayListGenerator generates a birthday list as csv or text (to stdout) from vcf files",
+	Long:  "VcardBirthdayListGenerator generates a birthday list as csv or text (to stdout) from vcf files",
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
+}
+
+var csvCmd = &cobra.Command{
+	Use:   "csv <path>",
+	Short: "generates a birthday list as csv (to stdout) from vcf files",
+	Long:  "generates a birthday list as csv (to stdout) from vcf files",
+	Args:  cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("name;month;day;year;error")
+
+		// walk a files in directory
+		err := filepath.Walk(args[0], evaluateVCardsCsv)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	},
+}
+
+var textCmd = &cobra.Command{
+	Use:   "text <path>",
+	Short: "generates a birthday list as text (to stdout) from vcf files",
+	Long:  "generates a birthday list as text (to stdout) from vcf files",
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// walk a files in directory
-		err := filepath.Walk(Path, evaluateVCards)
+		err := filepath.Walk(args[0], evaluateVCardsTxt)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -58,23 +83,30 @@ var rootCmd = &cobra.Command{
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version number of VcardBirthdayListGenerator",
-	Long:  "Print the version number of VcardBirthdayListGenerator",
+	Short: "Print the version of VcardBirthdayListGenerator",
+	Long:  "Print the version of VcardBirthdayListGenerator",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("VcardBirthdayListGenerator v0.2")
 	},
 }
 
 // function for filepath.Walk() which does all the work of parsing VCF files
-func evaluateVCards(path string, info os.FileInfo, err error) error {
+func evaluateVCardsCsv(path string, info os.FileInfo, err error) error {
+	return evaluateVCards(path, info, err, true)
+}
+
+// function for filepath.Walk() which does all the work of parsing VCF files
+func evaluateVCardsTxt(path string, info os.FileInfo, err error) error {
+	return evaluateVCards(path, info, err, false)
+}
+
+func evaluateVCards(path string, info os.FileInfo, err error, csvFlag bool) error {
 	_, err = os.Stat(path)
 	if err != nil {
 		return err
 	}
 
 	if !info.IsDir() {
-		fmt.Println("name;month;day;year;error")
-
 		// parse file for VCARDs
 		cards, err := vcard.GetVCards(path)
 		if err != nil {
@@ -84,18 +116,30 @@ func evaluateVCards(path string, info os.FileInfo, err error) error {
 
 		// verify if any card was in the file
 		if len(cards) == 0 {
-			fmt.Println(";;;;No vcard found in file ", path)
+			if csvFlag {
+				fmt.Println(";;;;No vcard found in file ", path)
+			} else {
+				fmt.Println("No vcard found in file ", path)
+			}
 		} else {
 			// iterate over all found cards
 			for _, card := range cards {
 				if card == (vcard.VCard{}) {
-					fmt.Println(";;;;VCard seems to be empty")
+					if csvFlag {
+						fmt.Println(";;;;VCard seems to be empty")
+					} else {
+						fmt.Println("VCard seems to be empty")
+					}
 				} else {
 					bd := card.BirthDay
 					nameSplit := strings.Split(card.StructuredName, ";")
 					name := nameSplit[0] + " " + nameSplit[1]
 					if bd == "" {
-						fmt.Println(name + ";;;;None")
+						if csvFlag {
+							fmt.Println(name + ";;;;None")
+						} else {
+							fmt.Println(name + ": None")
+						}
 					} else {
 						// check the different date formats which are used in VCARDs
 						bdTime, err := time.Parse("20060102", bd)
@@ -108,23 +152,45 @@ func evaluateVCards(path string, info os.FileInfo, err error) error {
 									bd = "0001" + bd
 									bdTime, err = time.Parse("20060102", bd)
 									if err != nil {
-										fmt.Println(name + ";;;;Could not parse birthday date with suffix -- correctly: " + bd)
+										if csvFlag {
+											fmt.Println(name + ";;;;Could not parse birthday date with suffix -- correctly: " + bd)
+										} else {
+											fmt.Println(name + ": Could not parse birthday date with suffix -- correctly: " + bd)
+										}
 									}
 								} else {
-									fmt.Println(name + ";;;;BirthDay has unknown format: " + bd)
+									if csvFlag {
+										fmt.Println(name + ";;;;BirthDay has unknown format: " + bd)
+									} else {
+										fmt.Println(name + ": BirthDay has unknown format: " + bd)
+									}
 								}
 							}
 						}
 
 						// print birthday
-						if !bdTime.IsZero() {
-							if bdTime.Year() != 1 {
-								fmt.Printf("%s;%d;%d;%d;\n", name, int(bdTime.Month()), bdTime.Day(), bdTime.Year())
+						if csvFlag {
+							if !bdTime.IsZero() {
+
+								if bdTime.Year() != 1 {
+									fmt.Printf("%s;%d;%d;%d;\n", name, int(bdTime.Month()), bdTime.Day(), bdTime.Year())
+								} else {
+									fmt.Printf("%s;%d;%d;;\n", name, int(bdTime.Month()), bdTime.Day())
+								}
 							} else {
-								fmt.Printf("%s;%d;%d;;\n", name, int(bdTime.Month()), bdTime.Day())
+								fmt.Println(name + ";;;;Could not evaluate birthday")
 							}
 						} else {
-							fmt.Println(name + ";;;;Could not evaluate birthday")
+							if !bdTime.IsZero() {
+
+								if bdTime.Year() != 1 {
+									fmt.Printf("%s: %d.%d.%d\n", name, bdTime.Day(), int(bdTime.Month()), bdTime.Year())
+								} else {
+									fmt.Printf("%s: %d.%d.\n", name, bdTime.Day(), int(bdTime.Month()))
+								}
+							} else {
+								fmt.Println(name + ": Could not evaluate birthday")
+							}
 						}
 					}
 				}

@@ -7,16 +7,7 @@ and the use VcardBirthdayListGenerator
 References:
 - vdirsyncer: https://github.com/pimutils/vdirsyncer 
 
-# Command line parameters
-The following parameters are available:
-
-  --path : path where the vcf files reside (or vcf file directly) (required)
-
-The following commands are available:
-		
-  version : prints version
-
 # Example command lines
-./VcardBirthdayListGenerator --path ~/.contacts/
+ ./VcardBirthdayListGenerator csv ~/.contacts/
+ ./VcardBirthdayListGenerator text ~/.contacts/
 
-./VcardBirthdayListGenerator version
