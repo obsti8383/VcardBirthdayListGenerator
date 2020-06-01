@@ -9,5 +9,6 @@ References:
 
 # Example command lines
  ./VcardBirthdayListGenerator csv ~/.contacts/
+
  ./VcardBirthdayListGenerator text ~/.contacts/
 
