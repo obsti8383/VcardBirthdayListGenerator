@@ -92,18 +92,108 @@ var versionCmd = &cobra.Command{
 
 // function for filepath.Walk() which does all the work of parsing VCF files
 func evaluateVCardsCsv(path string, info os.FileInfo, err error) error {
-	return evaluateVCards(path, info, err, true)
+	cards, err := collectVCards(path, info, err, true)
+	if err != nil {
+		return err
+	}
+	// TODO: sort
+	evaluateVCards(cards, true)
+	return nil
 }
 
 // function for filepath.Walk() which does all the work of parsing VCF files
 func evaluateVCardsTxt(path string, info os.FileInfo, err error) error {
-	return evaluateVCards(path, info, err, false)
-}
-
-func evaluateVCards(path string, info os.FileInfo, err error, csvFlag bool) error {
-	_, err = os.Stat(path)
+	cards, err := collectVCards(path, info, err, false)
 	if err != nil {
 		return err
+	}
+	// TODO: sort
+	evaluateVCards(cards, false)
+	return nil
+}
+
+func evaluateVCards(cards []vcard.VCard, csvFlag bool) {
+	// iterate over all found cards
+	for _, card := range cards {
+		if card == (vcard.VCard{}) {
+			if csvFlag {
+				fmt.Println(";;;;VCard seems to be empty")
+			} else {
+				fmt.Println("VCard seems to be empty")
+			}
+		} else {
+			bd := card.BirthDay
+			nameSplit := strings.Split(card.StructuredName, ";")
+			name := nameSplit[0] + " " + nameSplit[1]
+			if bd == "" {
+				if csvFlag {
+					fmt.Println(name + ";;;;None")
+				} else {
+					fmt.Println(name + ": None")
+				}
+			} else {
+				// check the different date formats which are used in VCARDs
+				bdTime, err := time.Parse("20060102", bd)
+				if err != nil {
+					bdTime, err = time.Parse("2006-01-02", bd)
+					if err != nil {
+						if strings.HasPrefix(bd, "--") {
+							// year of birth unknown
+							bd = strings.TrimPrefix(bd, "--")
+							bd = "0001" + bd
+							bdTime, err = time.Parse("20060102", bd)
+							if err != nil {
+								if csvFlag {
+									fmt.Println(name + ";;;;Could not parse birthday date with suffix -- correctly: " + bd)
+								} else {
+									fmt.Println(name + ": Could not parse birthday date with suffix -- correctly: " + bd)
+								}
+							}
+						} else {
+							if csvFlag {
+								fmt.Println(name + ";;;;BirthDay has unknown format: " + bd)
+							} else {
+								fmt.Println(name + ": BirthDay has unknown format: " + bd)
+							}
+						}
+					}
+				}
+
+				// print birthday
+				if csvFlag {
+					if !bdTime.IsZero() {
+
+						if bdTime.Year() != 1 {
+							fmt.Printf("%s;%d;%d;%d;\n", name, int(bdTime.Month()), bdTime.Day(), bdTime.Year())
+						} else {
+							fmt.Printf("%s;%d;%d;;\n", name, int(bdTime.Month()), bdTime.Day())
+						}
+					} else {
+						fmt.Println(name + ";;;;Could not evaluate birthday")
+					}
+				} else {
+					if !bdTime.IsZero() {
+
+						if bdTime.Year() != 1 {
+							fmt.Printf("%s: %d.%d.%d\n", name, bdTime.Day(), int(bdTime.Month()), bdTime.Year())
+						} else {
+							fmt.Printf("%s: %d.%d.\n", name, bdTime.Day(), int(bdTime.Month()))
+						}
+					} else {
+						fmt.Println(name + ": Could not evaluate birthday")
+					}
+				}
+			}
+		}
+	}
+}
+
+func collectVCards(path string, info os.FileInfo, err error, csvFlag bool) ([]vcard.VCard, error) {
+	var allCards []vcard.VCard
+
+	_, err = os.Stat(path)
+	if err != nil {
+		return nil, err
 	}
 
 	if !info.IsDir() {
@@ -111,7 +201,7 @@ func evaluateVCards(path string, info os.FileInfo, err error, csvFlag bool) erro
 		cards, err := vcard.GetVCards(path)
 		if err != nil {
 			fmt.Println(err)
-			return err
+			return nil, err
 		}
 
 		// verify if any card was in the file
@@ -122,81 +212,10 @@ func evaluateVCards(path string, info os.FileInfo, err error, csvFlag bool) erro
 				fmt.Println("No vcard found in file ", path)
 			}
 		} else {
-			// iterate over all found cards
-			for _, card := range cards {
-				if card == (vcard.VCard{}) {
-					if csvFlag {
-						fmt.Println(";;;;VCard seems to be empty")
-					} else {
-						fmt.Println("VCard seems to be empty")
-					}
-				} else {
-					bd := card.BirthDay
-					nameSplit := strings.Split(card.StructuredName, ";")
-					name := nameSplit[0] + " " + nameSplit[1]
-					if bd == "" {
-						if csvFlag {
-							fmt.Println(name + ";;;;None")
-						} else {
-							fmt.Println(name + ": None")
-						}
-					} else {
-						// check the different date formats which are used in VCARDs
-						bdTime, err := time.Parse("20060102", bd)
-						if err != nil {
-							bdTime, err = time.Parse("2006-01-02", bd)
-							if err != nil {
-								if strings.HasPrefix(bd, "--") {
-									// year of birth unknown
-									bd = strings.TrimPrefix(bd, "--")
-									bd = "0001" + bd
-									bdTime, err = time.Parse("20060102", bd)
-									if err != nil {
-										if csvFlag {
-											fmt.Println(name + ";;;;Could not parse birthday date with suffix -- correctly: " + bd)
-										} else {
-											fmt.Println(name + ": Could not parse birthday date with suffix -- correctly: " + bd)
-										}
-									}
-								} else {
-									if csvFlag {
-										fmt.Println(name + ";;;;BirthDay has unknown format: " + bd)
-									} else {
-										fmt.Println(name + ": BirthDay has unknown format: " + bd)
-									}
-								}
-							}
-						}
-
-						// print birthday
-						if csvFlag {
-							if !bdTime.IsZero() {
-
-								if bdTime.Year() != 1 {
-									fmt.Printf("%s;%d;%d;%d;\n", name, int(bdTime.Month()), bdTime.Day(), bdTime.Year())
-								} else {
-									fmt.Printf("%s;%d;%d;;\n", name, int(bdTime.Month()), bdTime.Day())
-								}
-							} else {
-								fmt.Println(name + ";;;;Could not evaluate birthday")
-							}
-						} else {
-							if !bdTime.IsZero() {
-
-								if bdTime.Year() != 1 {
-									fmt.Printf("%s: %d.%d.%d\n", name, bdTime.Day(), int(bdTime.Month()), bdTime.Year())
-								} else {
-									fmt.Printf("%s: %d.%d.\n", name, bdTime.Day(), int(bdTime.Month()))
-								}
-							} else {
-								fmt.Println(name + ": Could not evaluate birthday")
-							}
-						}
-					}
-				}
-			}
+			allCards = append(allCards, cards...)
 		}
+
 	}
 
-	return nil
+	return allCards, nil
 }
