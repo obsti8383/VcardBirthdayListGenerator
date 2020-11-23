@@ -20,15 +20,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/mapaiva/vcard-go"
 	"github.com/spf13/cobra"
-)
-
-var (
-	Path string
 )
 
 func main() {
@@ -92,27 +89,24 @@ var versionCmd = &cobra.Command{
 
 // function for filepath.Walk() which does all the work of parsing VCF files
 func evaluateVCardsCsv(path string, info os.FileInfo, err error) error {
-	cards, err := collectVCards(path, info, err, true)
-	if err != nil {
-		return err
-	}
-	// TODO: sort
-	evaluateVCards(cards, true)
-	return nil
+	return evaluateVCards(path, info, err, true)
 }
 
-// function for filepath.Walk() which does all the work of parsing VCF files
 func evaluateVCardsTxt(path string, info os.FileInfo, err error) error {
+	return evaluateVCards(path, info, err, false)
+}
+
+func evaluateVCards(path string, info os.FileInfo, err error, csvFlag bool) error {
 	cards, err := collectVCards(path, info, err, false)
 	if err != nil {
 		return err
 	}
-	// TODO: sort
-	evaluateVCards(cards, false)
+	sort.Sort(VCards(cards))
+	printVCards(cards, csvFlag)
 	return nil
 }
 
-func evaluateVCards(cards []vcard.VCard, csvFlag bool) {
+func printVCards(cards []vcard.VCard, csvFlag bool) {
 	// iterate over all found cards
 	for _, card := range cards {
 		if card == (vcard.VCard{}) {
@@ -162,11 +156,10 @@ func evaluateVCards(cards []vcard.VCard, csvFlag bool) {
 				// print birthday
 				if csvFlag {
 					if !bdTime.IsZero() {
-
 						if bdTime.Year() != 1 {
-							fmt.Printf("%s;%d;%d;%d;\n", name, int(bdTime.Month()), bdTime.Day(), bdTime.Year())
+							fmt.Printf("%s;%02d;%02d;%d;\n", name, int(bdTime.Month()), bdTime.Day(), bdTime.Year())
 						} else {
-							fmt.Printf("%s;%d;%d;;\n", name, int(bdTime.Month()), bdTime.Day())
+							fmt.Printf("%s;%02d;%02d;;\n", name, int(bdTime.Month()), bdTime.Day())
 						}
 					} else {
 						fmt.Println(name + ";;;;Could not evaluate birthday")
@@ -175,9 +168,9 @@ func evaluateVCards(cards []vcard.VCard, csvFlag bool) {
 					if !bdTime.IsZero() {
 
 						if bdTime.Year() != 1 {
-							fmt.Printf("%s: %d.%d.%d\n", name, bdTime.Day(), int(bdTime.Month()), bdTime.Year())
+							fmt.Printf("%s: %02d.%02d.%d\n", name, bdTime.Day(), int(bdTime.Month()), bdTime.Year())
 						} else {
-							fmt.Printf("%s: %d.%d.\n", name, bdTime.Day(), int(bdTime.Month()))
+							fmt.Printf("%s: %02d.%02d.\n", name, bdTime.Day(), int(bdTime.Month()))
 						}
 					} else {
 						fmt.Println(name + ": Could not evaluate birthday")
