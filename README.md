@@ -1,6 +1,6 @@
 # Introduction
 
-![Go Vet and Lint Status](https://github.com/obsti8383/TestIdentityGenerator/actions/workflows/go_lint_vet_and_testBuild.yml/badge.svg)
+![Go Vet and Lint Status](https://github.com/obsti8383/VcardBirthdayListGenerator/actions/workflows/go_lint_vet_and_testBuild.yml/badge.svg)
 
 VcardBirthdayListGenerator generates a birthday list as csv or text (to stdout) from vcf files
 
