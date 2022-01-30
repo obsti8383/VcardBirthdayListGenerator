@@ -1,14 +1,19 @@
 .DEFAULT_GOAL := build
 
-fmt:
+dependencies:
+	go get -d
+.PHONY:dependencies
+
+fmt: dependencies
 	go fmt ./...
 .PHONY:fmt
 
 lint: fmt
+	go install golang.org/x/lint/golint@latest
 	golint ./...
 .PHONY:lint
 
-vet: fmt
+vet: lint
 	go vet ./...
 .PHONY:vet
 
