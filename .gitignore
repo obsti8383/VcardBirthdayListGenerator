@@ -1,4 +1,5 @@
 VcardBirthdayListGenerator
 *.csv
 *.vcf
-
+.vscode
+it-depends.txt
